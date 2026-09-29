@@ -1,0 +1,6 @@
+{
+  "name": "GOAL",
+  "description": "Next-generation video sharing platform featuring standard videos, viral shorts reels, live broadcasts with real-time chat, creator studio, and wallet.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
