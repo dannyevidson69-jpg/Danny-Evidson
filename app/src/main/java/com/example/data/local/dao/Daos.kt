@@ -105,6 +105,12 @@ interface MessageDao {
 
     @Query("UPDATE conversations SET lastMessage = :lastMessage, updatedAt = :updatedAt WHERE id = :convId")
     suspend fun updateConversation(convId: String, lastMessage: String, updatedAt: Long)
+
+    @Query("UPDATE conversations SET unreadCount = 0 WHERE id = :convId")
+    suspend fun markConversationRead(convId: String)
+
+    @Query("DELETE FROM messages WHERE id = :messageId")
+    suspend fun deleteMessage(messageId: String)
 }
 
 @Dao

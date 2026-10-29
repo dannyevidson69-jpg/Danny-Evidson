@@ -43,6 +43,13 @@ class GoalRepository(
             messageDao.insertMessages(InitialDataSeed.getInitialMessages())
             creatorDao.insertBalance(InitialDataSeed.getInitialBalance())
             creatorDao.insertTransactions(InitialDataSeed.getInitialTransactions())
+        } else {
+            val existingConvs = messageDao.getAllConversations().first()
+            val conv1Msgs = messageDao.getMessagesForConversation("conv_1").first()
+            if (existingConvs.size < 5 || conv1Msgs.none { it.id == "msg_2_reel" }) {
+                messageDao.insertConversations(InitialDataSeed.getInitialConversations())
+                messageDao.insertMessages(InitialDataSeed.getInitialMessages())
+            }
         }
     }
 
@@ -129,6 +136,14 @@ class GoalRepository(
     fun getMessagesForConversation(convId: String): Flow<List<MessageEntity>> =
         messageDao.getMessagesForConversation(convId)
 
+    suspend fun markConversationRead(conversationId: String) {
+        messageDao.markConversationRead(conversationId)
+    }
+
+    suspend fun unsendMessage(messageId: String) {
+        messageDao.deleteMessage(messageId)
+    }
+
     suspend fun sendMessage(conversationId: String, receiverId: String, content: String) {
         if (content.isBlank()) return
         val now = System.currentTimeMillis()
@@ -138,7 +153,23 @@ class GoalRepository(
             senderId = InitialDataSeed.CURRENT_USER_ID,
             receiverId = receiverId,
             content = content.trim(),
-            isRead = false,
+            isRead = true,
+            createdAt = now
+        )
+        messageDao.insertMessage(message)
+        messageDao.updateConversation(conversationId, content.trim(), now)
+    }
+
+    suspend fun receiveCreatorReply(conversationId: String, senderUserId: String, content: String) {
+        if (content.isBlank()) return
+        val now = System.currentTimeMillis()
+        val message = MessageEntity(
+            id = "msg_${UUID.randomUUID()}",
+            conversationId = conversationId,
+            senderId = senderUserId,
+            receiverId = InitialDataSeed.CURRENT_USER_ID,
+            content = content.trim(),
+            isRead = true,
             createdAt = now
         )
         messageDao.insertMessage(message)

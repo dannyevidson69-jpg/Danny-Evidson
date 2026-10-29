@@ -288,18 +288,18 @@ object InitialDataSeed {
                 otherUserId = "usr_striker_9",
                 otherUsername = "ApexStriker",
                 otherUserAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
-                lastMessage = "Bro that highlights edit on GOAL reached 1M views! 🔥",
+                lastMessage = "Bro that highlights edit on GOAL reached 1M views! 🔥🎯",
                 updatedAt = now - 180000,
-                unreadCount = 1
+                unreadCount = 2
             ),
             ConversationEntity(
                 id = "conv_2",
                 otherUserId = "usr_freestyle_king",
                 otherUsername = "FreestyleKing",
                 otherUserAvatar = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
-                lastMessage = "Let's do a collab short this weekend in London.",
-                updatedAt = now - 3600000,
-                unreadCount = 0
+                lastMessage = "Let's shoot a collab Short this weekend at Wembley ⚽✨",
+                updatedAt = now - 1800000,
+                unreadCount = 1
             ),
             ConversationEntity(
                 id = "conv_3",
@@ -307,6 +307,24 @@ object InitialDataSeed {
                 otherUsername = "CyberEngineLab",
                 otherUserAvatar = "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150",
                 lastMessage = "Transcoding pipeline output looks super sharp at 1080p60!",
+                updatedAt = now - 7200000,
+                unreadCount = 0
+            ),
+            ConversationEntity(
+                id = "conv_4",
+                otherUserId = "usr_esports_prime",
+                otherUsername = "ESportsPrime",
+                otherUserAvatar = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+                lastMessage = "Are you co-streaming the Global Invitational Finals tonight?",
+                updatedAt = now - 28800000,
+                unreadCount = 0
+            ),
+            ConversationEntity(
+                id = "conv_5",
+                otherUserId = "usr_edit_wizard",
+                otherUsername = "MotionFX_Studio",
+                otherUserAvatar = "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150",
+                lastMessage = "Sent you the Royal Gold Target-G intro LUT pack 🎬",
                 updatedAt = now - 86400000,
                 unreadCount = 0
             )
@@ -321,7 +339,7 @@ object InitialDataSeed {
                 conversationId = "conv_1",
                 senderId = "usr_striker_9",
                 receiverId = CURRENT_USER_ID,
-                content = "Hey man, loved your latest breakdown video!",
+                content = "Hey bro, loved your latest Champions League tactical breakdown! 🎯",
                 isRead = true,
                 createdAt = now - 3600000
             ),
@@ -330,18 +348,81 @@ object InitialDataSeed {
                 conversationId = "conv_1",
                 senderId = CURRENT_USER_ID,
                 receiverId = "usr_striker_9",
-                content = "Thanks! The community feedback has been incredible.",
+                content = "[REPLY:ApexStriker|Hey bro, loved your latest Champions League tactical breakdown! 🎯]Appreciate it! The watch time retention hit 78% on GOAL Studio.",
                 isRead = true,
                 createdAt = now - 1800000
+            ),
+            MessageEntity(
+                id = "msg_2_reel",
+                conversationId = "conv_1",
+                senderId = "usr_striker_9",
+                receiverId = CURRENT_USER_ID,
+                content = "[REEL:1 HP 1v4 Clutch Tournament Point 🎯🔥|1.9M views|@ClutchGod]",
+                isRead = true,
+                createdAt = now - 900000
+            ),
+            MessageEntity(
+                id = "msg_2_voice",
+                conversationId = "conv_1",
+                senderId = "usr_striker_9",
+                receiverId = CURRENT_USER_ID,
+                content = "[VOICE:0:14]",
+                isRead = true,
+                createdAt = now - 400000
             ),
             MessageEntity(
                 id = "msg_3",
                 conversationId = "conv_1",
                 senderId = "usr_striker_9",
                 receiverId = CURRENT_USER_ID,
-                content = "Bro that highlights edit on GOAL reached 1M views! 🔥",
+                content = "Bro that highlights edit on GOAL reached 1M views! 🔥🎯",
                 isRead = false,
                 createdAt = now - 180000
+            ),
+            MessageEntity(
+                id = "msg_4",
+                conversationId = "conv_2",
+                senderId = "usr_freestyle_king",
+                receiverId = CURRENT_USER_ID,
+                content = "Yo! Saw your new verified creator badge on the profile 🔥",
+                isRead = true,
+                createdAt = now - 3600000
+            ),
+            MessageEntity(
+                id = "msg_5",
+                conversationId = "conv_2",
+                senderId = "usr_freestyle_king",
+                receiverId = CURRENT_USER_ID,
+                content = "Let's shoot a collab Short this weekend at Wembley ⚽✨",
+                isRead = false,
+                createdAt = now - 1800000
+            ),
+            MessageEntity(
+                id = "msg_6",
+                conversationId = "conv_3",
+                senderId = "usr_cyber_dev",
+                receiverId = CURRENT_USER_ID,
+                content = "Transcoding pipeline output looks super sharp at 1080p60!",
+                isRead = true,
+                createdAt = now - 7200000
+            ),
+            MessageEntity(
+                id = "msg_7",
+                conversationId = "conv_4",
+                senderId = "usr_esports_prime",
+                receiverId = CURRENT_USER_ID,
+                content = "Are you co-streaming the Global Invitational Finals tonight?",
+                isRead = true,
+                createdAt = now - 28800000
+            ),
+            MessageEntity(
+                id = "msg_8",
+                conversationId = "conv_5",
+                senderId = "usr_edit_wizard",
+                receiverId = CURRENT_USER_ID,
+                content = "Sent you the Royal Gold Target-G intro LUT pack 🎬",
+                isRead = true,
+                createdAt = now - 86400000
             )
         )
     }

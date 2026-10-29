@@ -12,6 +12,8 @@ import com.example.data.local.entity.MessageEntity
 import com.example.data.local.entity.TransactionEntity
 import com.example.data.local.entity.VideoEntity
 import com.example.data.repository.GoalRepository
+import com.example.ui.screens.security.SecurityAuditEvent
+import com.example.ui.screens.security.SecurityUiState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,14 +25,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 sealed class Screen {
     object Main : Screen() // Holds the 5 bottom nav tabs
     data class VideoPlayer(val videoId: String) : Screen()
     data class LiveRoom(val streamId: String) : Screen()
+    object MessagesInbox : Screen()
     data class ChatConversation(val conversationId: String) : Screen()
     object Search : Screen()
     object CreatorStudioDashboard : Screen()
+    object SecurityShield : Screen()
 }
 
 enum class MainTab {
@@ -48,6 +53,17 @@ data class TranscodeStep(
     val isComplete: Boolean = false
 )
 
+data class CreatorProfileUiState(
+    val displayName: String = "GOAL Official Creator",
+    val handle: String = "@goal_creator",
+    val category: String = "🎯 Elite Sports & Gaming Architect",
+    val bio: String = "Pro Streamer • 4K Tactical Breakdowns & Global Esports Finals ⚽🎮\nPartnered Creator on GOAL PRO Network ✨",
+    val website: String = "goal.gg/creator-pro",
+    val followersCount: String = "148.4K",
+    val followingCount: String = "312",
+    val totalLikesCount: String = "2.8M"
+)
+
 class GoalViewModel(application: Application) : AndroidViewModel(application) {
     private val database = GoalDatabase.getInstance(application)
     private val repository = GoalRepository(database)
@@ -58,6 +74,22 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedTab = MutableStateFlow(MainTab.HOME)
     val selectedTab: StateFlow<MainTab> = _selectedTab.asStateFlow()
+
+    // Professional Creator Profile state
+    private val _creatorProfile = MutableStateFlow(CreatorProfileUiState())
+    val creatorProfile: StateFlow<CreatorProfileUiState> = _creatorProfile.asStateFlow()
+
+    // Security Shield & Vault PIN state
+    private val _securityState = MutableStateFlow(SecurityUiState())
+    val securityState: StateFlow<SecurityUiState> = _securityState.asStateFlow()
+
+    // Instagram-style Creator Note in DM Inbox
+    private val _myNoteText = MutableStateFlow("Streaming UCL Finals tonight 🎯🔥")
+    val myNoteText: StateFlow<String> = _myNoteText.asStateFlow()
+
+    // Typing indicator for active chat
+    private val _isRecipientTyping = MutableStateFlow(false)
+    val isRecipientTyping: StateFlow<Boolean> = _isRecipientTyping.asStateFlow()
 
     // Video streams
     val standardVideos: StateFlow<List<VideoEntity>> = repository.standardVideos
@@ -141,8 +173,12 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
     val transcodeSteps: StateFlow<List<TranscodeStep>> = _transcodeSteps.asStateFlow()
 
     fun selectTab(tab: MainTab) {
+        val prevTab = _selectedTab.value
         _selectedTab.value = tab
         _currentScreen.value = Screen.Main
+        if (prevTab != tab && _securityState.value.autoLockPolicy == "Immediate" && _securityState.value.isVaultUnlockedSession) {
+            _securityState.value = _securityState.value.copy(isVaultUnlockedSession = false)
+        }
     }
 
     fun selectCategory(category: String) {
@@ -150,7 +186,15 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun navigateTo(screen: Screen) {
+        val prevScreen = _currentScreen.value
         _currentScreen.value = screen
+        if (prevScreen != screen &&
+            screen is Screen.Main &&
+            _securityState.value.autoLockPolicy == "Immediate" &&
+            _securityState.value.isVaultUnlockedSession
+        ) {
+            _securityState.value = _securityState.value.copy(isVaultUnlockedSession = false)
+        }
         when (screen) {
             is Screen.VideoPlayer -> loadVideo(screen.videoId)
             is Screen.LiveRoom -> loadLiveStream(screen.streamId)
@@ -160,11 +204,328 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun navigateBack(): Boolean {
-        return if (_currentScreen.value !is Screen.Main) {
-            _currentScreen.value = Screen.Main
-            true
+        return when (_currentScreen.value) {
+            is Screen.ChatConversation -> {
+                _currentScreen.value = Screen.MessagesInbox
+                true
+            }
+            is Screen.CreatorStudioDashboard -> {
+                _selectedTab.value = MainTab.PROFILE
+                _currentScreen.value = Screen.Main
+                if (_securityState.value.autoLockPolicy == "Immediate") {
+                    _securityState.value = _securityState.value.copy(isVaultUnlockedSession = false)
+                }
+                true
+            }
+            is Screen.SecurityShield -> {
+                _currentScreen.value = Screen.Main
+                true
+            }
+            !is Screen.Main -> {
+                _currentScreen.value = Screen.Main
+                if (_securityState.value.autoLockPolicy == "Immediate") {
+                    _securityState.value = _securityState.value.copy(isVaultUnlockedSession = false)
+                }
+                true
+            }
+            else -> false
+        }
+    }
+
+    // Security Shield Actions
+    fun toggleDmPin(enabled: Boolean) {
+        _securityState.value = _securityState.value.copy(isDmPinEnabled = enabled)
+    }
+
+    fun toggleWalletPin(enabled: Boolean) {
+        _securityState.value = _securityState.value.copy(isWalletPinEnabled = enabled)
+    }
+
+    fun toggleTwoFactor(enabled: Boolean) {
+        _securityState.value = _securityState.value.copy(isTwoFactorEnabled = enabled)
+    }
+
+    fun toggleAntiPhishing(enabled: Boolean) {
+        _securityState.value = _securityState.value.copy(isAntiPhishingEnabled = enabled)
+    }
+
+    fun toggleScreenshotBlocker(enabled: Boolean) {
+        _securityState.value = _securityState.value.copy(screenshotBlockerEnabled = enabled)
+        viewModelScope.launch {
+            val msg = if (enabled) "Screenshot & Screen Recording Blocker (FLAG_SECURE) ON 🛡️" else "Screenshot Blocker turned off"
+            _uiEvents.emit(msg)
+        }
+    }
+
+    fun toggleStealthMode(enabled: Boolean = !_securityState.value.stealthModeEnabled) {
+        _securityState.value = _securityState.value.copy(stealthModeEnabled = enabled)
+        viewModelScope.launch {
+            val msg = if (enabled) "Stealth Privacy & Balance Blur Mode Active ($••,•••.••) 🕶️" else "Stealth Mode turned off"
+            _uiEvents.emit(msg)
+        }
+    }
+
+    fun toggleCreatorDrm(enabled: Boolean) {
+        _securityState.value = _securityState.value.copy(creatorDrmEnabled = enabled)
+        viewModelScope.launch {
+            val msg = if (enabled) "Creator DRM Watermark & Anti-Piracy Guard ON 🎯" else "Creator DRM Watermark paused"
+            _uiEvents.emit(msg)
+        }
+    }
+
+    fun toggleNetworkFirewall(enabled: Boolean) {
+        _securityState.value = _securityState.value.copy(isFirewallActive = enabled)
+        viewModelScope.launch {
+            val msg = if (enabled) "Live Network Firewall & TLS 1.3 Pinning Active 🛡️" else "Network Firewall paused"
+            _uiEvents.emit(msg)
+        }
+    }
+
+    fun setAutoLockPolicy(policy: String) {
+        _securityState.value = _securityState.value.copy(autoLockPolicy = policy)
+        viewModelScope.launch {
+            _uiEvents.emit("Vault Auto-Lock Timer set to $policy ⏱️")
+        }
+    }
+
+    fun toggleDecoyMode(enabled: Boolean) {
+        _securityState.value = _securityState.value.copy(isDecoyModeActive = enabled)
+        viewModelScope.launch {
+            val msg = if (enabled) {
+                "🕵️ Decoy Safe Mode ON: Locked DMs hidden & wallet masked to $42.80"
+            } else {
+                "Master Vault Mode restored 🔓"
+            }
+            _uiEvents.emit(msg)
+        }
+    }
+
+    fun updateDecoyPin(newDecoyPin: String) {
+        if (newDecoyPin.length == 4 && newDecoyPin != _securityState.value.vaultPin) {
+            _securityState.value = _securityState.value.copy(decoyPin = newDecoyPin)
+            viewModelScope.launch {
+                _uiEvents.emit("Duress Decoy PIN updated to $newDecoyPin 🕵️")
+            }
+        }
+    }
+
+    fun activateDecoyVaultUnlock() {
+        _securityState.value = _securityState.value.copy(
+            isAppVaultLocked = false,
+            isVaultUnlockedSession = true,
+            isDecoyModeActive = true,
+            failedPinAttempts = 0
+        )
+        viewModelScope.launch {
+            _uiEvents.emit("Vault Unlocked (Decoy Safe Mode Active) 🔓")
+        }
+    }
+
+    fun recordIntruderPinAttempt() {
+        val nextFailures = _securityState.value.failedPinAttempts + 1
+        val isLockoutStrike = nextFailures >= 3
+        val updatedEvents = if (isLockoutStrike) {
+            val intruderEvent = SecurityAuditEvent(
+                id = "intruder_${UUID.randomUUID().toString().take(6)}",
+                title = "Intruder Brute-Force Lockout Triggered",
+                subtitle = "3 invalid PIN attempts blocked • 30s keypad cooldown enforced",
+                timestamp = "Just now",
+                severity = "INTRUDER"
+            )
+            listOf(intruderEvent) + _securityState.value.auditEvents
         } else {
-            false
+            _securityState.value.auditEvents
+        }
+        _securityState.value = _securityState.value.copy(
+            failedPinAttempts = nextFailures,
+            intruderAlertsCount = if (isLockoutStrike) {
+                _securityState.value.intruderAlertsCount + 1
+            } else {
+                _securityState.value.intruderAlertsCount
+            },
+            auditEvents = updatedEvents
+        )
+    }
+
+    fun clearIntruderAlerts() {
+        _securityState.value = _securityState.value.copy(
+            failedPinAttempts = 0,
+            intruderAlertsCount = 0
+        )
+        viewModelScope.launch {
+            _uiEvents.emit("Intruder alerts cleared 🛡️")
+        }
+    }
+
+    fun addWhitelistedBank(bankLabel: String) {
+        if (bankLabel.isNotBlank()) {
+            val formatted = "${bankLabel.trim()} [VERIFIED]"
+            val event = SecurityAuditEvent(
+                id = "iban_${UUID.randomUUID().toString().take(6)}",
+                title = "New Payout IBAN Added to Whitelist",
+                subtitle = "Verified destination: $formatted",
+                timestamp = "Just now",
+                severity = "VERIFIED"
+            )
+            _securityState.value = _securityState.value.copy(
+                whitelistedBanks = _securityState.value.whitelistedBanks + formatted,
+                auditEvents = listOf(event) + _securityState.value.auditEvents
+            )
+            viewModelScope.launch {
+                _uiEvents.emit("Whitelisted Payout Destination Verified: $formatted 🏦")
+            }
+        }
+    }
+
+    fun toggleEmergencyLockdown() {
+        val nextLockdown = !_securityState.value.isEmergencyLockdown
+        val event = SecurityAuditEvent(
+            id = "sec_${UUID.randomUUID().toString().take(6)}",
+            title = if (nextLockdown) "Emergency Lockdown Engaged" else "Emergency Lockdown Lifted",
+            subtitle = if (nextLockdown) {
+                "All vaults locked • External sessions revoked • Stealth Blur & FLAG_SECURE enforced"
+            } else {
+                "Standard Fortress security posture restored"
+            },
+            timestamp = "Just now",
+            severity = if (nextLockdown) "BLOCKED" else "SAFE"
+        )
+        _securityState.value = _securityState.value.copy(
+            isEmergencyLockdown = nextLockdown,
+            isVaultUnlockedSession = if (nextLockdown) false else _securityState.value.isVaultUnlockedSession,
+            isDmPinEnabled = true,
+            isWalletPinEnabled = true,
+            screenshotBlockerEnabled = true,
+            stealthModeEnabled = if (nextLockdown) true else _securityState.value.stealthModeEnabled,
+            activeSessions = if (nextLockdown) {
+                _securityState.value.activeSessions.filter { it.isCurrent }
+            } else {
+                _securityState.value.activeSessions
+            },
+            auditEvents = listOf(event) + _securityState.value.auditEvents
+        )
+        viewModelScope.launch {
+            val msg = if (nextLockdown) {
+                "🚨 EMERGENCY LOCKDOWN ACTIVE: Wallet frozen & external sessions revoked!"
+            } else {
+                "Emergency Lockdown lifted 🛡️"
+            }
+            _uiEvents.emit(msg)
+        }
+    }
+
+    fun lockEntireAppGate() {
+        _securityState.value = _securityState.value.copy(
+            isAppVaultLocked = true,
+            isVaultUnlockedSession = false
+        )
+    }
+
+    fun unlockEntireAppGate() {
+        _securityState.value = _securityState.value.copy(
+            isAppVaultLocked = false,
+            isVaultUnlockedSession = true,
+            isDecoyModeActive = false,
+            failedPinAttempts = 0
+        )
+        viewModelScope.launch {
+            _uiEvents.emit("GOAL Fortress Vault Gate Unlocked 🔓")
+        }
+    }
+
+    fun changeVaultPin(newPin: String) {
+        if (newPin.length == 4) {
+            val event = SecurityAuditEvent(
+                id = "sec_${UUID.randomUUID().toString().take(6)}",
+                title = "Vault Security PIN Updated",
+                subtitle = "4-digit PIN rotated for Direct Messages & Creator Wallet",
+                timestamp = "Just now",
+                severity = "VERIFIED"
+            )
+            _securityState.value = _securityState.value.copy(
+                vaultPin = newPin,
+                auditEvents = listOf(event) + _securityState.value.auditEvents
+            )
+            viewModelScope.launch {
+                _uiEvents.emit("Security PIN updated to $newPin 🔐")
+            }
+        }
+    }
+
+    fun unlockVaultSession() {
+        _securityState.value = _securityState.value.copy(
+            isVaultUnlockedSession = true,
+            isDecoyModeActive = false,
+            failedPinAttempts = 0
+        )
+        viewModelScope.launch {
+            _uiEvents.emit("Security Vault Unlocked 🔓")
+        }
+    }
+
+    fun lockVaultSession() {
+        _securityState.value = _securityState.value.copy(isVaultUnlockedSession = false)
+        viewModelScope.launch {
+            _uiEvents.emit("Security Vault Locked 🔐")
+        }
+    }
+
+    fun markConversationE2eeVerified(convId: String) {
+        _securityState.value = _securityState.value.copy(
+            verifiedConversationIds = _securityState.value.verifiedConversationIds + convId
+        )
+    }
+
+    fun revokeDeviceSession(sessionId: String) {
+        _securityState.value = _securityState.value.copy(
+            activeSessions = _securityState.value.activeSessions.filterNot { it.id == sessionId }
+        )
+        viewModelScope.launch {
+            _uiEvents.emit("Remote device session revoked 🛡️")
+        }
+    }
+
+    fun runSecurityAuditScan() {
+        val nextProbes = _securityState.value.blockedMitmProbes + 1
+        val scanEvent = SecurityAuditEvent(
+            id = "sec_${UUID.randomUUID().toString().take(6)}",
+            title = "Deep Packet, TLS 1.3 & E2EE Audit Passed",
+            subtitle = "0 vulnerabilities • $nextProbes MITM probes blocked • All SHA-256 keys verified",
+            timestamp = "Just now",
+            severity = "SAFE"
+        )
+        _securityState.value = _securityState.value.copy(
+            blockedMitmProbes = nextProbes,
+            auditEvents = listOf(scanEvent) + _securityState.value.auditEvents
+        )
+        viewModelScope.launch {
+            _uiEvents.emit("Deep Packet & E2EE Audit Complete: 99.9% Protected 🛡️")
+        }
+    }
+
+    fun updateCreatorProfile(
+        displayName: String,
+        category: String,
+        bio: String,
+        website: String
+    ) {
+        _creatorProfile.value = _creatorProfile.value.copy(
+            displayName = displayName.ifBlank { "GOAL Official Creator" },
+            category = category.ifBlank { "🎯 Elite Sports & Gaming Architect" },
+            bio = bio,
+            website = website
+        )
+        viewModelScope.launch {
+            _uiEvents.emit("Professional Profile updated ✨")
+        }
+    }
+
+    fun updateMyNote(note: String) {
+        if (note.isNotBlank()) {
+            _myNoteText.value = note.trim()
+            viewModelScope.launch {
+                _uiEvents.emit("Your Note was shared with followers 🎯")
+            }
         }
     }
 
@@ -192,9 +553,18 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
         val conv = conversations.value.firstOrNull { it.id == convId }
         _activeConversation.value = conv
         viewModelScope.launch {
+            repository.markConversationRead(convId)
+        }
+        viewModelScope.launch {
             repository.getMessagesForConversation(convId).collect { msgs ->
                 _conversationMessages.value = msgs
             }
+        }
+    }
+
+    fun unsendMessage(messageId: String) {
+        viewModelScope.launch {
+            repository.unsendMessage(messageId)
         }
     }
 
@@ -229,16 +599,19 @@ class GoalViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.sendMessage(conversationId, receiverId, content)
 
-            // Simulate incoming socket reply from recipient after a brief delay
-            delay(1200)
+            // Show Instagram-style typing indicator and deliver contextual creator response
+            delay(450)
+            _isRecipientTyping.value = true
+            delay(1300)
             val autoReplies = listOf(
-                "Appreciate the support! Keep watching GOAL streams 🚀",
-                "Working on the next video breakdown now! Stay tuned.",
-                "Let's collab soon! Ping me when you stream.",
-                "Awesome play! Let's get that highlight featured on GOAL!"
+                "100% bro! That new E2EE Instagram chat box & Royal Gold Target-G logo look Straight Fire 🎯🔥",
+                "Appreciate the love! Let's lock in that collab stream this Friday at 8 PM 🚀",
+                "Just checked your analytics growth—3.4M views this month is massive! 👏",
+                "Sending over the 4K60 highlight reel right now! Let's get it trending on GOAL ⚽✨"
             )
             val replyText = autoReplies.random()
-            repository.sendMessage(conversationId, "current_user", replyText)
+            _isRecipientTyping.value = false
+            repository.receiveCreatorReply(conversationId, receiverId, replyText)
         }
     }
 

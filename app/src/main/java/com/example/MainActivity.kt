@@ -1,6 +1,8 @@
 package com.example
 
+import android.app.Activity
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -19,10 +21,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.components.GoalBottomNav
-import com.example.ui.components.TipDialog
 import com.example.ui.screens.create.CreateStudioScreen
 import com.example.ui.screens.home.HomeScreen
 import com.example.ui.screens.live.LiveRoomScreen
@@ -30,8 +32,11 @@ import com.example.ui.screens.live.LiveStreamsScreen
 import com.example.ui.screens.messages.ChatConversationScreen
 import com.example.ui.screens.messages.MessagesListScreen
 import com.example.ui.screens.player.VideoPlayerScreen
+import com.example.ui.screens.profile.AnalyticsDashboardContent
 import com.example.ui.screens.profile.ProfileAndStudioScreen
 import com.example.ui.screens.search.SearchScreen
+import com.example.ui.screens.security.AppSecurityVaultGateOverlay
+import com.example.ui.screens.security.SecurityShieldScreen
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.GoalViewModel
@@ -63,6 +68,10 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
     val conversations by viewModel.conversations.collectAsStateWithLifecycle()
     val creatorBalance by viewModel.creatorBalance.collectAsStateWithLifecycle()
     val transactions by viewModel.transactions.collectAsStateWithLifecycle()
+    val creatorProfile by viewModel.creatorProfile.collectAsStateWithLifecycle()
+    val securityState by viewModel.securityState.collectAsStateWithLifecycle()
+    val myNoteText by viewModel.myNoteText.collectAsStateWithLifecycle()
+    val isRecipientTyping by viewModel.isRecipientTyping.collectAsStateWithLifecycle()
 
     val activeVideo by viewModel.activeVideo.collectAsStateWithLifecycle()
     val activeComments by viewModel.activeComments.collectAsStateWithLifecycle()
@@ -77,6 +86,20 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    // Enforce Android Hardware Screenshot & Screen Recording Blocker (FLAG_SECURE)
+    LaunchedEffect(securityState.screenshotBlockerEnabled, securityState.isEmergencyLockdown) {
+        val activity = context as? Activity
+        if (securityState.screenshotBlockerEnabled || securityState.isEmergencyLockdown) {
+            activity?.window?.setFlags(
+                WindowManager.LayoutParams.FLAG_SECURE,
+                WindowManager.LayoutParams.FLAG_SECURE
+            )
+        } else {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.uiEvents.collect { message ->
@@ -91,7 +114,7 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
         containerColor = DarkBg,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            if (currentScreen is Screen.Main) {
+            if (currentScreen is Screen.Main && !securityState.isAppVaultLocked) {
                 GoalBottomNav(
                     selectedTab = selectedTab,
                     onTabSelected = { viewModel.selectTab(it) },
@@ -106,7 +129,7 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
                 .padding(innerPadding)
                 .background(DarkBg)
         ) {
-            when (val screen = currentScreen) {
+            when (currentScreen) {
                 is Screen.Main -> {
                     when (selectedTab) {
                         MainTab.HOME -> {
@@ -115,6 +138,11 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
                                 liveStreams = liveStreams,
                                 selectedCategory = selectedCategory,
                                 unreadMessagesCount = unreadCount,
+                                protectionScore = securityState.protectionScore,
+                                isEmergencyLockdown = securityState.isEmergencyLockdown,
+                                stealthModeEnabled = securityState.stealthModeEnabled,
+                                screenshotBlockerEnabled = securityState.screenshotBlockerEnabled,
+                                creatorDrmEnabled = securityState.creatorDrmEnabled,
                                 onCategorySelected = { viewModel.selectCategory(it) },
                                 onVideoClick = { video ->
                                     viewModel.navigateTo(Screen.VideoPlayer(video.id))
@@ -126,9 +154,16 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
                                     viewModel.navigateTo(Screen.Search)
                                 },
                                 onMessagesClick = {
-                                    if (conversations.isNotEmpty()) {
-                                        viewModel.navigateTo(Screen.ChatConversation(conversations.first().id))
-                                    }
+                                    viewModel.navigateTo(Screen.MessagesInbox)
+                                },
+                                onOpenSecurityShield = {
+                                    viewModel.navigateTo(Screen.SecurityShield)
+                                },
+                                onQuickLockApp = {
+                                    viewModel.lockEntireAppGate()
+                                },
+                                onToggleStealthMode = {
+                                    viewModel.toggleStealthMode()
                                 },
                                 onLikeVideo = { viewModel.toggleLike(it) },
                                 onSaveVideo = { viewModel.toggleSave(it) },
@@ -179,8 +214,26 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
                             ProfileAndStudioScreen(
                                 videos = standardVideos,
                                 savedVideos = savedVideos,
+                                shortsVideos = shortsVideos,
                                 creatorBalance = creatorBalance,
                                 transactions = transactions,
+                                creatorProfile = creatorProfile,
+                                vaultPin = securityState.vaultPin,
+                                decoyPin = securityState.decoyPin,
+                                isDecoyModeActive = securityState.isDecoyModeActive,
+                                whitelistedBanks = securityState.whitelistedBanks,
+                                onAddWhitelistedBank = { viewModel.addWhitelistedBank(it) },
+                                creatorDrmEnabled = securityState.creatorDrmEnabled,
+                                isWalletPinEnabled = securityState.isWalletPinEnabled,
+                                isVaultUnlocked = securityState.isVaultUnlockedSession,
+                                stealthModeEnabled = securityState.stealthModeEnabled,
+                                onToggleStealthMode = { viewModel.toggleStealthMode() },
+                                onUnlockVault = { viewModel.unlockVaultSession() },
+                                onDecoyUnlock = { viewModel.activateDecoyVaultUnlock() },
+                                onIntruderAttempt = { viewModel.recordIntruderPinAttempt() },
+                                onOpenSecurityShield = {
+                                    viewModel.navigateTo(Screen.SecurityShield)
+                                },
                                 onVideoClick = { video ->
                                     viewModel.navigateTo(Screen.VideoPlayer(video.id))
                                 },
@@ -188,10 +241,112 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
                                 onSaveVideo = { viewModel.toggleSave(it) },
                                 onRequestPayout = { amount ->
                                     viewModel.requestPayout(amount)
+                                },
+                                onOpenSeparateAnalytics = {
+                                    viewModel.navigateTo(Screen.CreatorStudioDashboard)
+                                },
+                                onEditProfile = { name, cat, bio, web ->
+                                    viewModel.updateCreatorProfile(name, cat, bio, web)
                                 }
                             )
                         }
                     }
+                }
+
+                is Screen.MessagesInbox -> {
+                    MessagesListScreen(
+                        conversations = conversations,
+                        myNoteText = myNoteText,
+                        onUpdateMyNote = { viewModel.updateMyNote(it) },
+                        vaultPin = securityState.vaultPin,
+                        decoyPin = securityState.decoyPin,
+                        isDecoyModeActive = securityState.isDecoyModeActive,
+                        isDmPinEnabled = securityState.isDmPinEnabled,
+                        isVaultUnlocked = securityState.isVaultUnlockedSession,
+                        onUnlockVault = { viewModel.unlockVaultSession() },
+                        onDecoyUnlock = { viewModel.activateDecoyVaultUnlock() },
+                        onIntruderAttempt = { viewModel.recordIntruderPinAttempt() },
+                        onOpenSecurityShield = {
+                            viewModel.navigateTo(Screen.SecurityShield)
+                        },
+                        onSelectConversation = { conv ->
+                            viewModel.navigateTo(Screen.ChatConversation(conv.id))
+                        },
+                        onBack = { viewModel.navigateBack() }
+                    )
+                }
+
+                is Screen.ChatConversation -> {
+                    activeConversation?.let { conv ->
+                        ChatConversationScreen(
+                            conversation = conv,
+                            messages = conversationMessages,
+                            isRecipientTyping = isRecipientTyping,
+                            isE2eeVerified = securityState.verifiedConversationIds.contains(conv.id),
+                            onVerifyE2eeKeys = {
+                                viewModel.markConversationE2eeVerified(conv.id)
+                            },
+                            onUnsendMessage = { msgId ->
+                                viewModel.unsendMessage(msgId)
+                            },
+                            onSendMessage = { text ->
+                                viewModel.sendMessage(conv.id, conv.otherUserId, text)
+                            },
+                            onBack = { viewModel.navigateBack() }
+                        )
+                    }
+                }
+
+                is Screen.CreatorStudioDashboard -> {
+                    AnalyticsDashboardContent(
+                        creatorBalance = creatorBalance,
+                        transactions = transactions,
+                        onRequestPayout = { amount ->
+                            viewModel.requestPayout(amount)
+                        },
+                        vaultPin = securityState.vaultPin,
+                        decoyPin = securityState.decoyPin,
+                        isDecoyModeActive = securityState.isDecoyModeActive,
+                        whitelistedBanks = securityState.whitelistedBanks,
+                        onAddWhitelistedBank = { viewModel.addWhitelistedBank(it) },
+                        isWalletPinEnabled = securityState.isWalletPinEnabled,
+                        isVaultUnlocked = securityState.isVaultUnlockedSession,
+                        stealthModeEnabled = securityState.stealthModeEnabled,
+                        onToggleStealthMode = { viewModel.toggleStealthMode() },
+                        onUnlockVault = { viewModel.unlockVaultSession() },
+                        onDecoyUnlock = { viewModel.activateDecoyVaultUnlock() },
+                        onIntruderAttempt = { viewModel.recordIntruderPinAttempt() },
+                        onOpenSecurityShield = {
+                            viewModel.navigateTo(Screen.SecurityShield)
+                        },
+                        showStandaloneTopBar = true,
+                        onBack = { viewModel.navigateBack() }
+                    )
+                }
+
+                is Screen.SecurityShield -> {
+                    SecurityShieldScreen(
+                        securityState = securityState,
+                        onToggleDmPin = { viewModel.toggleDmPin(it) },
+                        onToggleWalletPin = { viewModel.toggleWalletPin(it) },
+                        onToggleTwoFactor = { viewModel.toggleTwoFactor(it) },
+                        onToggleAntiPhishing = { viewModel.toggleAntiPhishing(it) },
+                        onToggleScreenshotBlocker = { viewModel.toggleScreenshotBlocker(it) },
+                        onToggleStealthMode = { viewModel.toggleStealthMode(it) },
+                        onToggleCreatorDrm = { viewModel.toggleCreatorDrm(it) },
+                        onToggleFirewall = { viewModel.toggleNetworkFirewall(it) },
+                        onSelectAutoLockPolicy = { viewModel.setAutoLockPolicy(it) },
+                        onToggleDecoyMode = { viewModel.toggleDecoyMode(it) },
+                        onUpdateDecoyPin = { viewModel.updateDecoyPin(it) },
+                        onClearIntruderAlerts = { viewModel.clearIntruderAlerts() },
+                        onToggleEmergencyLockdown = { viewModel.toggleEmergencyLockdown() },
+                        onLockAppGateNow = { viewModel.lockEntireAppGate() },
+                        onChangeVaultPin = { viewModel.changeVaultPin(it) },
+                        onLockVaultNow = { viewModel.lockVaultSession() },
+                        onRevokeSession = { viewModel.revokeDeviceSession(it) },
+                        onRunSecurityScan = { viewModel.runSecurityAuditScan() },
+                        onBack = { viewModel.navigateBack() }
+                    )
                 }
 
                 is Screen.VideoPlayer -> {
@@ -229,19 +384,6 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
                     }
                 }
 
-                is Screen.ChatConversation -> {
-                    activeConversation?.let { conv ->
-                        ChatConversationScreen(
-                            conversation = conv,
-                            messages = conversationMessages,
-                            onSendMessage = { text ->
-                                viewModel.sendMessage(conv.id, conv.otherUserId, text)
-                            },
-                            onBack = { viewModel.navigateBack() }
-                        )
-                    }
-                }
-
                 is Screen.Search -> {
                     SearchScreen(
                         searchQuery = searchQuery,
@@ -255,8 +397,17 @@ fun GoalApp(viewModel: GoalViewModel = viewModel()) {
                         onBack = { viewModel.navigateBack() }
                     )
                 }
+            }
 
-                else -> {}
+            // Full-Screen Royal Gold & Obsidian App Security Vault Gate Overlay
+            if (securityState.isAppVaultLocked) {
+                AppSecurityVaultGateOverlay(
+                    expectedPin = securityState.vaultPin,
+                    decoyPin = securityState.decoyPin,
+                    onUnlockSuccess = { viewModel.unlockEntireAppGate() },
+                    onDecoyUnlock = { viewModel.activateDecoyVaultUnlock() },
+                    onIntruderAttempt = { viewModel.recordIntruderPinAttempt() }
+                )
             }
         }
     }

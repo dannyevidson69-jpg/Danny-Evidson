@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,11 +19,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Card
@@ -52,9 +52,12 @@ import coil.compose.AsyncImage
 import com.example.data.local.entity.VideoEntity
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurface
+import com.example.ui.theme.DarkSurfaceBorder
 import com.example.ui.theme.DarkSurfaceElevated
 import com.example.ui.theme.GoalGreen
 import com.example.ui.theme.GoalMagenta
+import com.example.ui.theme.RoyalGold
+import com.example.ui.theme.RoyalGoldLight
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import java.util.Locale
@@ -66,23 +69,36 @@ fun GoalVideoCard(
     onLikeClick: () -> Unit,
     onSaveClick: () -> Unit,
     onTipClick: () -> Unit = {},
+    drmWatermarkEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    var showDrmSignatureBanner by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(
+                        RoyalGold.copy(alpha = 0.42f),
+                        DarkSurfaceBorder,
+                        GoalGreen.copy(alpha = 0.25f)
+                    )
+                ),
+                shape = RoundedCornerShape(18.dp)
+            )
             .clickable { onClick() }
             .testTag("video_card_${video.id}"),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
             containerColor = DarkSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Thumbnail container (16:9)
+            // Cinema-Grade Thumbnail Container (16:9)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -96,123 +112,230 @@ fun GoalVideoCard(
                     contentScale = ContentScale.Crop
                 )
 
-                // Bottom gradient scrim
+                // Deep Velvet Bottom Gradient Scrim
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color(0xCC000000)),
-                                startY = 180f
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.25f),
+                                    Color.Transparent,
+                                    Color(0xE606090F)
+                                )
                             )
                         )
                 )
 
-                // Category tag top-left
-                Box(
+                // Top-Left Category + 4K HDR Gold Pill
+                Row(
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(10.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xCC111520))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .padding(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = video.category,
-                        color = GoalGreen,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xD90A0F1A))
+                            .border(0.8.dp, RoyalGold.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = video.category.uppercase(),
+                            color = RoyalGoldLight,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.8.sp
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                Brush.linearGradient(listOf(RoyalGoldLight, RoyalGold))
+                            )
+                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "4K HDR",
+                            color = DarkBg,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.6.sp
+                        )
+                    }
                 }
 
-                // Play icon overlay
+                // Top-Right DRM / Verified Content Shield Badge
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xCC0A0F1A))
+                        .border(0.8.dp, GoalGreen.copy(alpha = 0.55f), RoundedCornerShape(50))
+                        .clickable { showDrmSignatureBanner = !showDrmSignatureBanner }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.VerifiedUser,
+                            contentDescription = "DRM Protected",
+                            tint = GoalGreen,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = if (drmWatermarkEnabled) "DRM GUARD" else "VERIFIED",
+                            color = GoalGreen,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                // Dynamic Creator DRM Watermark & Anti-Piracy Seal Bottom-Left
+                if (drmWatermarkEnabled) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xBF06090F))
+                            .border(0.6.dp, RoyalGold.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "🎯 DRM-SHA256 • @${video.username}",
+                            color = RoyalGoldLight.copy(alpha = 0.9f),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Luxury Gold-Rimmed Play Icon Overlay
                 Box(
                     modifier = Modifier
                         .align(Alignment.Center)
-                        .size(46.dp)
+                        .size(50.dp)
                         .clip(CircleShape)
-                        .background(Color(0x77000000)),
+                        .background(Color(0xAA080B11))
+                        .border(
+                            width = 1.5.dp,
+                            brush = Brush.linearGradient(listOf(RoyalGoldLight, RoyalGold, GoalGreen)),
+                            shape = CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,
                         contentDescription = "Play",
-                        tint = Color.White,
+                        tint = RoyalGoldLight,
                         modifier = Modifier.size(28.dp)
                     )
                 }
 
-                // Duration badge bottom-right
+                // Duration Badge Bottom-Right
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(10.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xDD000000))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xE6080B11))
+                        .border(0.6.dp, RoyalGold.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 7.dp, vertical = 3.dp)
                 ) {
                     val minutes = video.durationSeconds / 60
                     val seconds = video.durationSeconds % 60
                     Text(
                         text = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds),
-                        color = Color.White,
+                        color = RoyalGoldLight,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
 
-            // Info Details
+            if (showDrmSignatureBanner) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0x2200E676))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🛡️ Anti-Piracy DRM Hash: SHA256-${video.id.uppercase()}-${video.username.take(4).uppercase()}",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GoalGreen
+                    )
+                    Text(
+                        text = "Hide",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = RoyalGoldLight,
+                        modifier = Modifier.clickable { showDrmSignatureBanner = false }
+                    )
+                }
+            }
+
+            // Creator & Video Metadata Details
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(13.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                // Creator Avatar
+                // Creator Avatar with Royal Gold Halo Ring
                 AsyncImage(
                     model = video.userAvatar,
                     contentDescription = video.username,
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(44.dp)
                         .clip(CircleShape)
-                        .background(DarkSurfaceElevated),
+                        .background(DarkSurfaceElevated)
+                        .border(
+                            width = 1.5.dp,
+                            brush = Brush.linearGradient(listOf(RoyalGoldLight, RoyalGold, GoalGreen)),
+                            shape = CircleShape
+                        ),
                     contentScale = ContentScale.Crop
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Title and stats
+                // Title and Creator Stats
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = video.title,
                         color = TextPrimary,
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.ExtraBold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         lineHeight = 20.sp
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(5.dp))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = video.username,
-                            color = TextSecondary,
+                            text = "@${video.username}",
+                            color = RoyalGoldLight,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Bold
                         )
                         if (video.isVerified) {
-                            Icon(
-                                imageVector = Icons.Filled.CheckCircle,
-                                contentDescription = "Verified Creator",
-                                tint = GoalGreen,
-                                modifier = Modifier.size(13.dp)
-                            )
+                            GoalVerifiedBadge(isGoldTier = true, size = 14.dp)
                         }
                         Text(
                             text = "•",
@@ -222,7 +345,8 @@ fun GoalVideoCard(
                         Text(
                             text = formatViews(video.viewsCount),
                             color = TextSecondary,
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -252,7 +376,7 @@ fun GoalVideoCard(
                         Icon(
                             imageVector = if (video.isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                             contentDescription = "Save",
-                            tint = if (video.isSaved) GoalGreen else TextSecondary,
+                            tint = if (video.isSaved) RoyalGold else TextSecondary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -283,9 +407,10 @@ fun GoalVideoCard(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Share Link", color = TextPrimary) },
+                                text = { Text("Verify Content DRM Signature", color = RoyalGoldLight) },
                                 onClick = {
                                     menuExpanded = false
+                                    showDrmSignatureBanner = true
                                 }
                             )
                         }

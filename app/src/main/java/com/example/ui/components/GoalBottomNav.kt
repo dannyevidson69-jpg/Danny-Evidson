@@ -1,6 +1,7 @@
 package com.example.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -23,14 +24,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurface
-import com.example.ui.theme.DarkSurfaceBorder
 import com.example.ui.theme.GoalGreen
+import com.example.ui.theme.RoyalGold
+import com.example.ui.theme.RoyalGoldLight
 import com.example.ui.theme.TextSecondary
 import com.example.ui.viewmodel.MainTab
 
@@ -41,11 +46,32 @@ fun GoalBottomNav(
     modifier: Modifier = Modifier
 ) {
     NavigationBar(
-        modifier = modifier.testTag("goal_bottom_navigation"),
-        containerColor = DarkSurface,
+        modifier = modifier
+            .border(
+                width = 0.8.dp,
+                brush = Brush.horizontalGradient(
+                    listOf(
+                        RoyalGold.copy(alpha = 0.25f),
+                        RoyalGoldLight.copy(alpha = 0.55f),
+                        GoalGreen.copy(alpha = 0.35f),
+                        RoyalGold.copy(alpha = 0.25f)
+                    )
+                ),
+                shape = RectangleShape
+            )
+            .testTag("goal_bottom_navigation"),
+        containerColor = Color(0xFF0A0E17),
         contentColor = Color.White,
-        tonalElevation = 8.dp
+        tonalElevation = 12.dp
     ) {
+        val navColors = NavigationBarItemDefaults.colors(
+            selectedIconColor = RoyalGoldLight,
+            selectedTextColor = RoyalGoldLight,
+            indicatorColor = Color(0x28F59E0B),
+            unselectedIconColor = TextSecondary,
+            unselectedTextColor = TextSecondary
+        )
+
         // Home
         NavigationBarItem(
             modifier = Modifier.testTag("nav_home"),
@@ -57,14 +83,14 @@ fun GoalBottomNav(
                     contentDescription = "Home"
                 )
             },
-            label = { Text("Home", fontSize = 11.sp) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = GoalGreen,
-                selectedTextColor = GoalGreen,
-                indicatorColor = Color(0x2200E676),
-                unselectedIconColor = TextSecondary,
-                unselectedTextColor = TextSecondary
-            )
+            label = {
+                Text(
+                    text = "Home",
+                    fontSize = 11.sp,
+                    fontWeight = if (selectedTab == MainTab.HOME) FontWeight.ExtraBold else FontWeight.Medium
+                )
+            },
+            colors = navColors
         )
 
         // Shorts
@@ -78,17 +104,17 @@ fun GoalBottomNav(
                     contentDescription = "Shorts"
                 )
             },
-            label = { Text("Shorts", fontSize = 11.sp) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = GoalGreen,
-                selectedTextColor = GoalGreen,
-                indicatorColor = Color(0x2200E676),
-                unselectedIconColor = TextSecondary,
-                unselectedTextColor = TextSecondary
-            )
+            label = {
+                Text(
+                    text = "Shorts",
+                    fontSize = 11.sp,
+                    fontWeight = if (selectedTab == MainTab.SHORTS) FontWeight.ExtraBold else FontWeight.Medium
+                )
+            },
+            colors = navColors
         )
 
-        // Create (+)
+        // Create (+) — Luxury Royal Gold & Emerald Glowing Button
         NavigationBarItem(
             modifier = Modifier.testTag("nav_create"),
             selected = selectedTab == MainTab.CREATE,
@@ -96,16 +122,22 @@ fun GoalBottomNav(
             icon = {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .shadow(6.dp, CircleShape)
-                        .background(GoalGreen, CircleShape),
+                        .size(44.dp)
+                        .shadow(10.dp, CircleShape)
+                        .background(
+                            brush = Brush.linearGradient(
+                                listOf(RoyalGoldLight, RoyalGold, GoalGreen)
+                            ),
+                            shape = CircleShape
+                        )
+                        .border(1.5.dp, Color.White.copy(alpha = 0.7f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
                         contentDescription = "Create Media",
                         tint = DarkBg,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             },
@@ -126,14 +158,14 @@ fun GoalBottomNav(
                     contentDescription = "Live"
                 )
             },
-            label = { Text("Live", fontSize = 11.sp) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = GoalGreen,
-                selectedTextColor = GoalGreen,
-                indicatorColor = Color(0x2200E676),
-                unselectedIconColor = TextSecondary,
-                unselectedTextColor = TextSecondary
-            )
+            label = {
+                Text(
+                    text = "Live",
+                    fontSize = 11.sp,
+                    fontWeight = if (selectedTab == MainTab.LIVE) FontWeight.ExtraBold else FontWeight.Medium
+                )
+            },
+            colors = navColors
         )
 
         // Profile
@@ -147,14 +179,14 @@ fun GoalBottomNav(
                     contentDescription = "Profile"
                 )
             },
-            label = { Text("Profile", fontSize = 11.sp) },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = GoalGreen,
-                selectedTextColor = GoalGreen,
-                indicatorColor = Color(0x2200E676),
-                unselectedIconColor = TextSecondary,
-                unselectedTextColor = TextSecondary
-            )
+            label = {
+                Text(
+                    text = "Profile",
+                    fontSize = 11.sp,
+                    fontWeight = if (selectedTab == MainTab.PROFILE) FontWeight.ExtraBold else FontWeight.Medium
+                )
+            },
+            colors = navColors
         )
     }
 }
